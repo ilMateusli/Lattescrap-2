@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Busca Lattes</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
+    <style>
+        /* Estilos Gerais */
+        :root {
+            --primary-color: #FFFFFF;
+            --secondary-color: #BDBDBD;
+            --background-color: #121212;
+            --card-bg: #1E1E1E;
+            --text-color: #E0E0E0;
+            --input-bg: #2A2A2A;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.5);
+            --gradient: linear-gradient(135deg, #4A4A4A, #3A3A3A);
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 1rem;
+
+        }
+        body::-webkit-scrollbar {
+            width: 8px;
+        }
+        .parent-container {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            max-width: 1200px;
+            min-height: 90vh;
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+
+        .top-container {
+            display: flex;
+            flex-direction: row;
+            flex: 1;
+            padding: 1rem;
+        }
+
+        .left-container {
+            flex: 2;
+            padding: 2rem;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: #666 #2A2A2A;
+        }
+
+        .left-container::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .left-container::-webkit-scrollbar-track {
+            background: #2A2A2A;
+        }
+
+        .left-container::-webkit-scrollbar-thumb {
+            background-color: #666;
+            border-radius: 4px;
+            border: 2px solid #2A2A2A;
+        }
+
+        .log-container {
+            flex: 1;
+            margin-left: 1rem;
+            padding: 1rem;
+            background: #1E1E1E;
+            color: #E0E0E0;
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            font-size: 0.9rem;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .log-container h2 {
+            margin-bottom: 0.5rem;
+            text-align: center;
+        }
+
+        .log-content {
+            flex: 1;
+            max-height: 1000px;
+            overflow-y: auto;
+            padding-right: 10px;
+        }
+
+        /* Estilizar scrollbar customizado para log-content */
+        .log-content::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .log-content::-webkit-scrollbar-track {
+            background: #2A2A2A;
+        }
+
+        .log-content::-webkit-scrollbar-thumb {
+            background: #666;
+            border-radius: 4px;
+        }
+
+        .log-content::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        .bottom-container {
+            flex: 1;
+            padding: 2rem;
+            background-color: #FFFFFF;
+            overflow-y: auto;
+            display: none; /* Inicialmente oculto */
+        }
+
+        .bottom-container iframe {
+            width: 100%;
+            height: 100%;
+            min-height: 1000px;
+            border: none;
+        }
+
+        h1 {
+            text-align: center;
+            color: var(--primary-color);
+            margin-bottom: 1.5rem;
+            font-weight: 700;
+            font-size: 2.2rem;
+        }
+
+        .input-group {
+            margin-bottom: 1.5rem;
+            position: relative;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: var(--secondary-color);
+            font-size: 1rem;
+        }
+
+        select, input[type=file] {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid var(--input-bg);
+            border-radius: 6px;
+            font-size: 1rem;
+            background: var(--input-bg);
+            color: var(--text-color);
+            transition: all 0.3s ease;
+        }
+
+        button {
+            width: 100%;
+            padding: 0.75rem;
+            background: var(--gradient);
+            color: var(--primary-color);
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 1.5rem;
+        }
+
+        button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.5);
+        }
+
+        .progress-container {
+            margin-top: 2rem;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 10px;
+            background: var(--input-bg);
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .progress {
+            width: 0%;
+            height: 100%;
+            background: var(--primary-color);
+            transition: width 0.4s ease;
+        }
+
+        #status {
+            text-align: center;
+            margin-top: 1rem;
+            font-size: 0.9rem;
+            color: var(--secondary-color);
+        }
+
+        #download-btn {
+            display: none;
+            margin-top: 1.5rem;
+            background: var(--gradient);
+            color: var(--primary-color);
+        }
+
+        .file-drop-area {
+            border: 2px dashed var(--secondary-color);
+            border-radius: 8px;
+            padding: 2rem;
+            text-align: center;
+            cursor: pointer;
+            background-color: var(--input-bg);
+            color: var(--text-color);
+            transition: background-color 0.3s ease, border-color 0.3s ease;
+        }
+
+        .file-drop-area.dragover {
+            background-color: #3A3A3A;
+            border-color: #FFFFFF;
+        }
+
+        .file-drop-area p {
+            margin-bottom: 1rem;
+            font-size: 1rem;
+        }
+
+        .file-drop-area .btn {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            background: var(--gradient);
+            color: var(--primary-color);
+            border-radius: 6px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        .file-drop-area .btn:hover {
+            background: #3A3A3A;
+        }
+
+        .file-drop-area input {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="parent-container">
+        <div class="top-container">
+            <div class="left-container">
+                <h1><i class="fas fa-search"></i> Busca Lattes </h1>
+                <form id="scraping-form" enctype="multipart/form-data">
+                    <div class="input-group">
+                        <label for="nomes_file"><i class="fas fa-file-excel"></i> Planilha com os nomes</label>
+                        <div class="file-drop-area" id="file-drop-area-nomes">
+                            <p>Arraste e solte o arquivo aqui ou</p>
+                            <span class="btn">Selecionar arquivo</span>
+                            <input type="file" id="nomes_file" name="nomes_file" accept=".xlsx,.xls,.csv" required>
+                        </div>
+                        <p id="file-name-nomes"></p>
+                    </div>
+
+                    <div class="input-group">
+                        <label for="classificacoes_file"><i class="fas fa-file-excel"></i> Planilha de Classificações</label>
+                        <div class="file-drop-area" id="file-drop-area-classificacoes">
+                            <p>Arraste e solte o arquivo aqui ou</p>
+                            <span class="btn">Selecionar arquivo</span>
+                            <input type="file" id="classificacoes_file" name="classificacoes_file" accept=".xlsx,.xls,.csv" required>
+                        </div>
+                        <p id="file-name-classificacoes"></p>
+                    </div>
+
+                    <div class="input-group">
+                        <label for="column-select"><i class="fas fa-columns"></i> Selecione a coluna dos nomes</label>
+                        <select id="column-select" name="column" required>
+                            <option value="">Carregue um arquivo primeiro</option>
+                        </select>
+                    </div>
+                    <button type="submit"><i class="fas fa-play"></i> Iniciar busca</button>
+                </form>
+
+                <div class="progress-container">
+                    <div class="progress-bar">
+                        <div class="progress" id="progress"></div>
+                    </div>
+                    <p id="status"></p>
+                </div>
+                <button id="download-btn"><i class="fas fa-download"></i> Download dos Resultados</button>
+            </div>
+            <div class="log-container" id="log-container">
+                <h2>Logs</h2>
+                <div class="log-content" id="log-content"></div>
+            </div>
+        </div>
+        <div class="bottom-container" id="bottom-container">
+            <iframe src="/dash/" title="Dash Dashboard"></iframe>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
+    <script>
+        const form = document.getElementById('scraping-form');
+        const progressBar = document.getElementById('progress');
+        const statusText = document.getElementById('status');
+        const downloadBtn = document.getElementById('download-btn');
+        const bottomContainer = document.getElementById('bottom-container');
+        const columnSelect = document.getElementById('column-select');
+        const logContent = document.getElementById('log-content');
+
+        let progressInterval = null;
+
+        // Função para mostrar o nome do arquivo selecionado
+        function handleFileSelection(input, displayId) {
+            const fileNameDisplay = document.getElementById(displayId);
+            if (input.files.length > 0) {
+                fileNameDisplay.textContent = `Arquivo selecionado: ${input.files[0].name}`;
+            } else {
+                fileNameDisplay.textContent = '';
+            }
+        }
+
+        // Evento para o primeiro arquivo (nomes_file)
+        document.getElementById('nomes_file').addEventListener('change', function(e) {
+            handleFileSelection(e.target, 'file-name-nomes');
+            if (e.target.files.length > 0) {
+                loadColumns(e.target.files[0]);
+            } else {
+                columnSelect.innerHTML = '<option value="">Carregue um arquivo primeiro</option>';
+            }
+        });
+
+        // Evento para o segundo arquivo (classificacoes_file)
+        document.getElementById('classificacoes_file').addEventListener('change', function(e) {
+            handleFileSelection(e.target, 'file-name-classificacoes');
+        });
+
+        // Função para carregar as colunas do arquivo nomes_file no dropdown
+        function loadColumns(file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, {type: 'array'});
+                const sheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[sheetName];
+                const headers = XLSX.utils.sheet_to_json(worksheet, { header: 1 })[0];
+
+                if (headers && headers.length > 0) {
+                    columnSelect.innerHTML = headers.map((header, index) =>
+                        `<option value="${index}">${header}</option>`
+                    ).join('');
+                } else {
+                    columnSelect.innerHTML = '<option value="">Nenhuma coluna encontrada</option>';
+                }
+            };
+            reader.onerror = function() {
+                alert('Erro ao ler o arquivo. Por favor, tente novamente.');
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // Evento de clique nos botões de seleção de arquivo
+        document.querySelectorAll('.file-drop-area .btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const area = btn.closest('.file-drop-area');
+                const input = area.querySelector('input[type="file"]');
+                input.click();
+            });
+        });
+
+        // Evento de drop para arrastar e soltar arquivos
+        document.querySelectorAll('.file-drop-area').forEach(area => {
+            area.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                area.classList.add('dragover');
+            });
+
+            area.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                area.classList.remove('dragover');
+            });
+
+            area.addEventListener('drop', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                area.classList.remove('dragover');
+                const input = area.querySelector('input[type="file"]');
+                if (e.dataTransfer.files.length > 0) {
+                    input.files = e.dataTransfer.files;
+                    const event = new Event('change');
+                    input.dispatchEvent(event);
+                }
+            });
+        });
+
+        // Função para iniciar o polling do progresso
+        function startProgressPolling() {
+            if (progressInterval) {
+                clearInterval(progressInterval);
+            }
+            progressInterval = setInterval(async () => {
+                try {
+                    const res = await fetch('/progress');
+                    const data = await res.json();
+                    if (data.status === 'running') {
+                        const total = data.total;
+                        const current = data.current;
+                        const percent = total > 0 ? (current / total) * 100 : 0;
+                        progressBar.style.width = `${percent}%`;
+                        statusText.textContent = `Processando... ${current}/${total}`;
+                    } else if (data.status === 'done') {
+                        clearInterval(progressInterval);
+                        progressBar.style.width = '100%';
+                        statusText.textContent = 'Busca concluída!';
+                        downloadBtn.style.display = 'block';
+                        bottomContainer.style.display = 'block';
+                        // Atualizar o iframe para carregar os gráficos
+                        const iframe = bottomContainer.querySelector('iframe');
+                        iframe.src = '/dash/';
+                    } else if (data.status === 'error') {
+                        clearInterval(progressInterval);
+                        statusText.textContent = 'Ocorreu um erro no processamento.';
+                    }
+                } catch (error) {
+                    console.error('Erro ao obter progresso:', error);
+                    clearInterval(progressInterval);
+                    statusText.textContent = 'Erro ao obter progresso.';
+                }
+            }, 1000); // Atualiza a cada 1 segundo
+        }
+
+        // Função para iniciar o polling dos logs
+        function startLogPolling() {
+            setInterval(async () => {
+                try {
+                    const res = await fetch('/logs');
+                    const data = await res.json();
+                    logContent.innerHTML = '';
+                    data.forEach(line => {
+                        const p = document.createElement('p');
+                        p.textContent = line;
+                        logContent.appendChild(p);
+                    });
+                    // Rolar para o final da div de logs
+                    logContent.scrollTop = logContent.scrollHeight;
+                } catch (error) {
+                    console.error('Erro ao obter logs:', error);
+                }
+            }, 2000); // Atualiza a cada 2 segundos
+        }
+
+        // Evento de submissão do formulário
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const nomesFile = document.getElementById('nomes_file').files[0];
+            const classificacoesFile = document.getElementById('classificacoes_file').files[0];
+            const selectedColumn = columnSelect.value;
+
+            if (!nomesFile || !classificacoesFile || selectedColumn === "") {
+                alert('Por favor, selecione todos os arquivos e a coluna antes de iniciar.');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('nomes_file', nomesFile);
+            formData.append('classificacoes_file', classificacoesFile);
+            formData.append('column', selectedColumn);
+
+            try {
+                statusText.textContent = 'Iniciando busca...';
+                progressBar.style.width = '0%';
+                downloadBtn.style.display = 'none';
+                bottomContainer.style.display = 'none';
+
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.status === 'success') {
+                    statusText.textContent = 'Processamento iniciado...';
+                    startProgressPolling();
+                    startLogPolling();  // Iniciar o polling dos logs
+                } else {
+                    statusText.textContent = `Erro: ${result.message}`;
+                }
+            } catch (error) {
+                console.error('Erro ao enviar formulário:', error);
+                statusText.textContent = 'Ocorreu um erro ao enviar o formulário.';
+            }
+        });
+
+        // Evento de clique no botão de download
+        downloadBtn.addEventListener('click', function() {
+            window.location.href = '/download';
+        });
+    </script>
+</body>
+</html>
