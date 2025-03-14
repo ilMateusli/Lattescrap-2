@@ -7,7 +7,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
     <style>
-        /* Estilos Gerais */
         :root {
             --primary-color: #FFFFFF;
             --secondary-color: #BDBDBD;
@@ -100,7 +99,6 @@
             padding-right: 10px;
         }
 
-        /* Estilizar scrollbar customizado para log-content */
         .log-content::-webkit-scrollbar {
             width: 8px;
         }
@@ -123,7 +121,7 @@
             padding: 2rem;
             background-color: #FFFFFF;
             overflow-y: auto;
-            display: none; /* Inicialmente oculto */
+            display: none;
         }
 
         .bottom-container iframe {
@@ -372,7 +370,6 @@
             reader.readAsArrayBuffer(file);
         }
 
-        // Evento de clique nos botões de seleção de arquivo
         document.querySelectorAll('.file-drop-area .btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 const area = btn.closest('.file-drop-area');
@@ -381,7 +378,6 @@
             });
         });
 
-        // Evento de drop para arrastar e soltar arquivos
         document.querySelectorAll('.file-drop-area').forEach(area => {
             area.addEventListener('dragover', (e) => {
                 e.preventDefault();
@@ -408,7 +404,6 @@
             });
         });
 
-        // Função para iniciar o polling do progresso
         function startProgressPolling() {
             if (progressInterval) {
                 clearInterval(progressInterval);
@@ -429,7 +424,6 @@
                         statusText.textContent = 'Busca concluída!';
                         downloadBtn.style.display = 'block';
                         bottomContainer.style.display = 'block';
-                        // Atualizar o iframe para carregar os gráficos
                         const iframe = bottomContainer.querySelector('iframe');
                         iframe.src = '/dash/';
                     } else if (data.status === 'error') {
@@ -441,10 +435,9 @@
                     clearInterval(progressInterval);
                     statusText.textContent = 'Erro ao obter progresso.';
                 }
-            }, 1000); // Atualiza a cada 1 segundo
+            }, 1000);
         }
 
-        // Função para iniciar o polling dos logs
         function startLogPolling() {
             setInterval(async () => {
                 try {
@@ -456,15 +449,14 @@
                         p.textContent = line;
                         logContent.appendChild(p);
                     });
-                    // Rolar para o final da div de logs
                     logContent.scrollTop = logContent.scrollHeight;
                 } catch (error) {
                     console.error('Erro ao obter logs:', error);
                 }
-            }, 2000); // Atualiza a cada 2 segundos
+            }, 2000);
         }
 
-        // Evento de submissão do formulário
+        // submissão do formulário
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             const nomesFile = document.getElementById('nomes_file').files[0];
@@ -497,7 +489,7 @@
                 if (result.status === 'success') {
                     statusText.textContent = 'Processamento iniciado...';
                     startProgressPolling();
-                    startLogPolling();  // Iniciar o polling dos logs
+                    startLogPolling();
                 } else {
                     statusText.textContent = `Erro: ${result.message}`;
                 }
@@ -507,7 +499,6 @@
             }
         });
 
-        // Evento de clique no botão de download
         downloadBtn.addEventListener('click', function() {
             window.location.href = '/download';
         });

@@ -1,5 +1,3 @@
-# app.py
-
 import os
 import re
 import json
@@ -8,6 +6,8 @@ import time
 import uuid
 import threading
 import glob
+import platform
+import random
 from flask import Flask, render_template, request, jsonify, send_file, session
 from flask_session import Session
 from werkzeug.utils import secure_filename
@@ -22,11 +22,13 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from fake_useragent import UserAgent
+from selenium_stealth import stealth
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 server = Flask(__name__)
-server.config['SECRET_KEY'] = 'sua_chave_secreta_aqui'  # Substitua por uma chave secreta segura
+server.config['SECRET_KEY'] = 'alguma_chave_secreta_aqui'
 server.config['UPLOAD_FOLDER'] = 'uploads'
 server.config['RESULT_FOLDER'] = 'results'
 server.config['ALLOWED_EXTENSIONS'] = {'xlsx', 'xls', 'csv'}
@@ -47,7 +49,6 @@ user_progress_dict = {}
 APP_LOGS = []
 
 def log_message(msg):
-    # Armazena a mensagem de log na lista global
     APP_LOGS.append(msg)
     print(msg)
 
@@ -60,12 +61,10 @@ def find_issn_qualis(issn: str, qualis_data: pd.DataFrame):
 
 def extrair_dados(html_dict, output_dir, qualis_data):
     log_message("Iniciando extração de dados...")
-    # Salvar o JSON
     file_path = os.path.join(output_dir, DATA_FILE_TEMPLATE)
     log_message("Salvando dados JSON...")
     with open(file_path, "w", encoding='utf-8') as f:
         json.dump(html_dict, f, ensure_ascii=False, indent=4)
-    # log_message("Dados JSON salvos.")  # Removido para manter logs de ações
 
     info_list = []
 
@@ -102,7 +101,6 @@ def extrair_dados(html_dict, output_dir, qualis_data):
     log_message("Salvando dados gerais no Excel...")
     dfgeral_path = os.path.join(output_dir, 'DocentesPPG.xlsx')
     dfgeral.to_excel(dfgeral_path, index=False)
-    # log_message("Dados gerais salvos no Excel.")  # Removido
 
     # Processar artigos individuais
     for professor_nome, professor_dados in html_dict.items():
@@ -149,7 +147,6 @@ def extrair_dados(html_dict, output_dir, qualis_data):
             df = pd.DataFrame(articles_info_list).set_index('Índice do Artigo')
             professor_excel_path = os.path.join(output_dir, f"{professor_nome}.xlsx")
             df.to_excel(professor_excel_path)
-            # log_message(f"Dados individuais de {professor_nome} salvos no Excel.")  # Removido
         else:
             log_message(f"Nenhum artigo encontrado para {professor_nome}.")
 
@@ -162,11 +159,12 @@ def get_html(driver, proff):
     log_message(f"Pesquisando docente: {proff}")
     url = "http://buscatextual.cnpq.br/buscatextual/busca.do"
     driver.get(url)
-    time.sleep(2)
+    time.sleep(random.uniform(2, 4))  # Atraso aleatório para mimetizar comportamento humano
 
     search_bar = wait_and_find(driver, By.ID, 'textoBusca')
+    search_bar.clear()  # Limpa a barra de busca antes de inserir
     search_bar.send_keys(proff)
-    time.sleep(1)
+    time.sleep(random.uniform(1, 3))  # Atraso aleatório
     search_bar.send_keys(Keys.ENTER)
 
     try:
@@ -174,7 +172,7 @@ def get_html(driver, proff):
     except:
         log_message(f"Não encontrou resultado para {proff}")
         return ""
-    time.sleep(1)
+    time.sleep(random.uniform(1, 2))
     link.click()
 
     try:
@@ -182,10 +180,11 @@ def get_html(driver, proff):
     except:
         log_message(f"Botão de abrir currículo não encontrado para {proff}")
         return ""
-    time.sleep(2)
+    time.sleep(random.uniform(1, 3))
     btn_abre_curriculo.click()
-    time.sleep(2)
+    time.sleep(random.uniform(1, 3))
 
+    # Alterna para a nova janela/tab
     driver.switch_to.window(driver.window_handles[1])
     log_message(f"Abrindo resultado para {proff}")
     html = driver.page_source
@@ -195,26 +194,93 @@ def get_html(driver, proff):
 
     return html
 
-def get_htmls(professors, user_id):
-    log_message("Iniciando coleta de HTMLs dos professores...")
+def fetch_proxies():
+    proxies = []
+    proxies_file_path = os.path.join(BASE_DIR, 'proxies.txt')
+
+    if os.path.exists(proxies_file_path):
+        with open(proxies_file_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    proxies.append(line)
+    else:
+        log_message(f"Arquivo proxies.txt não encontrado em {proxies_file_path}")
+
+    return proxies
+def initialize_webdriver(proxy=None):
+    ua = UserAgent()
+    user_agent = ua.random  # Gera um User-Agent aleatório
+
+    if platform.system() == 'Windows':
+        windows_driver_path = "chromedriver.exe"
+        service = Service(windows_driver_path)
+    else:
+        linux_driver_path = "/usr/bin/chromedriver"
+        service = Service(linux_driver_path)
+    
     chrome_options = Options()
-    chrome_options.add_argument("--headless")
+    # chrome_options.add_argument("--headless")  # Evite usar headless se possível
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument("--disable-gpu")
+    # chrome_options.add_argument("--incognito")  # Pode ser útil, mas depende do site
     chrome_options.add_argument("--window-size=1920,1080")
+    chrome_options.add_argument(f"user-agent={user_agent}")  # Define o User-Agent falso
 
-    chromedriver_path = "chromedriver.exe"
-    service = Service(executable_path=chromedriver_path)
+    # Configurações para evitar detecção de automação
+    chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    chrome_options.add_experimental_option('useAutomationExtension', False)
+    chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+
+    # Remover a adição do proxy
+    # if proxy:
+    #     chrome_options.add_argument(f"--proxy-server={proxy}")
 
     driver = webdriver.Chrome(service=service, options=chrome_options)
+
+    # Implementa stealth para ocultar sinais de automação
+    stealth(driver,
+            languages=["pt-BR", "pt"],
+            vendor="Google Inc.",
+            platform="Win32",
+            webgl_vendor="Intel Inc.",
+            renderer="Intel Iris OpenGL Engine",
+            fix_hairline=True,
+            )
+
+    # Remove a propriedade 'navigator.webdriver'
+    driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+
+    return driver
+
+
+def get_htmls(professors, user_id):
+    log_message("Iniciando coleta de HTMLs dos professores...")
+
+    # Obter lista de proxies
+    proxies = fetch_proxies()
+
+    # Escolher um proxy aleatório (ou None se não houver)
+    if proxies:
+        proxy = random.choice(proxies)
+        log_message(f"Usando proxy: {proxy}")
+    else:
+        proxy = None
+        log_message("Nenhum proxy encontrado, prosseguindo sem proxy.")
+
+    # Inicializa apenas uma vez o WebDriver com o proxy selecionado
+    driver = initialize_webdriver(proxy=proxy)
 
     html_dict = {}
     errored_professors = []
     final_error = []
 
     total = len(professors)
+    user_progress_dict[user_id] = {'current': 0, 'total': total, 'status': 'running'}
+
     for index, proff in enumerate(professors, 1):
+        driver.delete_all_cookies()
         log_message(f"Procurando: {proff}")
         try:
             html = get_html(driver, proff)
@@ -234,6 +300,13 @@ def get_htmls(professors, user_id):
         if index % 3 == 0:
             log_message("Deletando Cookies")
             driver.delete_all_cookies()
+            # Opcional: Reiniciar o driver para limpar cache e outros dados
+            driver.quit()
+            # Re-inicializa o driver
+            proxy = random.choice(proxies) if proxies else None
+            driver = initialize_webdriver(proxy=proxy)
+            log_message("Driver reiniciado para limpar cache e evitar detecção.")
+            time.sleep(random.uniform(2, 5))  # Aguardar um tempo antes de continuar
 
     # Reprocessar professores com erro
     while errored_professors:
@@ -249,12 +322,11 @@ def get_htmls(professors, user_id):
             log_message(f'Erro repetido com o professor: {proff}. Detalhes: {str(e)}')
             final_error.append(proff)
 
-        # Atualizar progresso
+        # Atualizar progresso (conta mais uma tentativa)
         user_progress = user_progress_dict.get(user_id, {'current': 0, 'total': total, 'status': 'running'})
-        user_progress['current'] += 1  # Assuming each retry counts
+        user_progress['current'] += 1
         user_progress_dict[user_id] = user_progress
 
-    # Professores que não puderam ser encontrados
     if final_error:
         error_message = "\n".join(final_error)
         log_message(f"Não foi encontrado: \n{error_message}")
@@ -295,10 +367,8 @@ def process_file(file_path_nomes, file_path_classificacoes, output_dir, selected
     user_progress_dict[user_id]['current'] = 0
     user_progress_dict[user_id]['status'] = 'running'
 
-    # Realizar scraping
     html_dict = get_htmls(professors, user_id)
 
-    # Processar dados extraídos
     extrair_dados(html_dict, output_dir, qualis_data)
 
     log_message(f"Processamento concluído. Resultados salvos em {output_dir}")
@@ -327,7 +397,6 @@ def load_user_data(user_id):
 
     if individual_dfs:
         df_individual = pd.concat(individual_dfs, ignore_index=True)
-        # Mesclar dados individuais com dados do DocentesPPG.xlsx
         df_merged = pd.merge(df_individual, df_docentes, on='Docente', how='left')
         log_message("Dados individuais dos professores mesclados com dados gerais.")
         return df_merged
@@ -353,10 +422,9 @@ dash_app.layout = dash_html.Div([
         dcc.RangeSlider(
             id='year-slider',
             step=1,
-            value=[2000, 2025],  # Será atualizado dinamicamente
+            value=[2000, 2025],
             tooltip={"placement": "bottom", "always_visible": True},
         ),
-
         dash_html.Label("Professores:"),
         dcc.Dropdown(id='professor-dropdown', multi=True),
     ], style={'width': '30%', 'float': 'left', 'display': 'inline-block', 'verticalAlign': 'top'}),
@@ -367,13 +435,13 @@ dash_app.layout = dash_html.Div([
         dcc.Graph(id='bar-chart-periodicos'),
         dcc.Graph(id='bar-chart-qualis'),
         dcc.Graph(id='line-chart-professors'),
-        dcc.Graph(id='line-chart-evolucao'),  # Novo gráfico adicionado
+        dcc.Graph(id='line-chart-evolucao'),
     ], style={'width': '70%', 'float': 'right', 'display': 'inline-block'})
 ])
 
 @dash_app.callback(
     Output('store-user-id', 'data'),
-    Input('year-slider', 'id')  # Input para disparar o callback na carga inicial
+    Input('year-slider', 'id')
 )
 def get_user_id(_):
     return session.get('user_id', '')
@@ -413,7 +481,6 @@ def update_filters(data):
         df['Ano'] = pd.to_numeric(df['Ano'], errors='coerce')
         df = df.dropna(subset=['Ano'])
         if df.empty:
-            # Caso todos anos sejam inválidos
             return professor_options, list(professores), 2000, 2025, {}, [2000, 2025]
         min_year = int(df['Ano'].min())
         max_year = int(df['Ano'].max())
@@ -434,7 +501,7 @@ def update_filters(data):
         Output('bar-chart-periodicos', 'figure'),
         Output('bar-chart-qualis', 'figure'),
         Output('line-chart-professors', 'figure'),
-        Output('line-chart-evolucao', 'figure'),  # Novo Output
+        Output('line-chart-evolucao', 'figure'),
     ],
     [
         Input('store-data', 'data'),
@@ -450,27 +517,23 @@ def update_graphs(data, year_range, selected_professors):
         df['Ano'] = pd.to_numeric(df['Ano'], errors='coerce')
         df = df.dropna(subset=['Ano'])
         if not df.empty:
-            # Ajuste do inclusive
             df = df[df['Ano'].between(year_range[0], year_range[1], inclusive='both')]
 
     if selected_professors:
         df = df[df['Docente'].isin(selected_professors)]
 
-    # Gráfico 1: Número de Artigos por Docente
     if 'Total de Artigos' in df.columns and 'Docente' in df.columns:
         docentes_artigos = df[['Docente', 'Total de Artigos']].drop_duplicates().copy()
         fig1 = px.bar(docentes_artigos, x='Docente', y='Total de Artigos', title='Número de Artigos por Docente')
     else:
         fig1 = px.bar(title='Dados de Artigos não disponíveis')
 
-    # Gráfico 2: Orientações por Docente
     if 'Orientações' in df.columns and 'Docente' in df.columns:
         docentes_orientacoes = df[['Docente', 'Orientações']].drop_duplicates()
         fig2 = px.line(docentes_orientacoes, x='Docente', y='Orientações', title='Orientações por Docente')
     else:
         fig2 = px.line(title='Dados de Orientações não disponíveis')
 
-    # Gráfico 3: Top 10 Periódicos
     if 'Periódico' in df.columns and df['Periódico'].notna().any():
         top_periodicos = df['Periódico'].value_counts().nlargest(10).reset_index()
         top_periodicos.columns = ['Periódico', 'Número de Artigos']
@@ -478,7 +541,6 @@ def update_graphs(data, year_range, selected_professors):
     else:
         fig3 = px.bar(title='Dados de Periódicos não disponíveis')
 
-    # Gráfico 4: Distribuição de Artigos por Qualis
     if 'Qualis' in df.columns and df['Qualis'].notna().any():
         qualis_count = df['Qualis'].value_counts().reset_index()
         qualis_count.columns = ['Qualis', 'Número de Artigos']
@@ -486,7 +548,6 @@ def update_graphs(data, year_range, selected_professors):
     else:
         fig4 = px.bar(title='Dados de Qualis não disponíveis')
 
-    # Gráfico 5: Publicações por Ano
     if 'Ano' in df.columns and df['Ano'].notna().any():
         pub_ano = df['Ano'].value_counts().sort_index().reset_index()
         pub_ano.columns = ['Ano', 'Número de Publicações']
@@ -494,13 +555,11 @@ def update_graphs(data, year_range, selected_professors):
     else:
         fig5 = px.line(title='Dados de Ano não disponíveis')
 
-    # Gráfico 6: Evolução de publicações ao longo dos anos por docente
     if 'Ano' in df.columns and 'Docente' in df.columns:
-        # Agrupar por Ano e Docente, contar o número de publicações
         df_evolucao = df.groupby(['Ano', 'Docente']).size().reset_index(name='Número de Publicações')
         if not df_evolucao.empty:
             fig6 = px.line(df_evolucao, x='Ano', y='Número de Publicações', color='Docente',
-                          title='Evolução de Publicações ao Longo dos Anos por Docente')
+                           title='Evolução de Publicações ao Longo dos Anos por Docente')
         else:
             fig6 = px.line(title='Dados de Evolução não disponíveis')
     else:
@@ -513,7 +572,7 @@ def index():
     if 'user_id' not in session:
         session['user_id'] = str(uuid.uuid4())
         user_progress_dict[session['user_id']] = {'current': 0, 'total': 0, 'status': 'idle'}
-    return render_template('index.html')  # Certifique-se de que index.html integra o Dash app
+    return render_template('index.html')
 
 @server.route('/upload', methods=['POST'])
 def upload_file():
@@ -550,7 +609,6 @@ def upload_file():
             return jsonify({'status': 'error', 'message': 'Coluna não selecionada.'}), 400
 
         log_message("Iniciando thread de processamento.")
-        # Iniciar o processamento em uma thread separada para não bloquear o servidor
         thread = threading.Thread(target=process_file, args=(nomes_path, classificacoes_path, user_result_folder, selected_column, user_id))
         thread.start()
 
@@ -558,17 +616,47 @@ def upload_file():
     else:
         return jsonify({'status': 'error', 'message': 'Tipos de arquivos não permitidos.'}), 400
 
+def generate_consolidated_json(user_id):
+    user_folder = os.path.join(RESULT_FOLDER, user_id)
+    docentes_path = os.path.join(user_folder, 'DocentesPPG.xlsx')
+
+    if not os.path.exists(docentes_path):
+        log_message(f"Arquivo DocentesPPG.xlsx não encontrado para {user_id}.")
+        return {}
+
+    df_docentes = pd.read_excel(docentes_path)
+    docentes_data = df_docentes.to_dict('records')
+
+    professor_files = glob.glob(os.path.join(user_folder, '*.xlsx'))
+    individual_data = {}
+    for file in professor_files:
+        if os.path.basename(file) == 'DocentesPPG.xlsx':
+            continue
+        professor_nome = os.path.splitext(os.path.basename(file))[0]
+        df_individual = pd.read_excel(file)
+        individual_data[professor_nome] = df_individual.to_dict('records')
+
+    consolidated_data = {
+        'docentes': docentes_data,
+        'individual_data': individual_data
+    }
+    return consolidated_data
+
 @server.route('/download', methods=['GET'])
 def download_file_endpoint():
     user_id = session.get('user_id')
     if not user_id:
         return jsonify({'status': 'error', 'message': 'Sessão inválida.'}), 400
 
-    result_file = os.path.join(server.config['RESULT_FOLDER'], user_id, DATA_FILE_TEMPLATE)
-    if os.path.exists(result_file):
-        return send_file(result_file, as_attachment=True)
-    else:
-        return jsonify({'status': 'error', 'message': 'Arquivo de resultados não encontrado.'}), 404
+    consolidated_data = generate_consolidated_json(user_id)
+    if not consolidated_data:
+        return jsonify({'status': 'error', 'message': 'Nenhum dado disponível para download.'}), 404
+
+    result_file_path = os.path.join(RESULT_FOLDER, user_id, 'resultados_consolidados.json')
+    with open(result_file_path, 'w', encoding='utf-8') as json_file:
+        json.dump(consolidated_data, json_file, ensure_ascii=False, indent=4)
+
+    return send_file(result_file_path, as_attachment=True)
 
 @server.route('/progress', methods=['GET'])
 def get_progress():
@@ -585,7 +673,6 @@ def get_progress():
 
 @server.route('/logs', methods=['GET'])
 def get_logs():
-    # Retorna todos os logs acumulados
     return jsonify(APP_LOGS)
 
 if __name__ == '__main__':
